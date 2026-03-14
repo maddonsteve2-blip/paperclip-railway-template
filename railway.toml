@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js"
+startCommand = "node --import ./node_modules/tsx/dist/loader.mjs server/dist/index.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

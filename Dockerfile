@@ -39,4 +39,4 @@ RUN mkdir -p /paperclip \
 # Railway sets PORT at runtime and this process binds to it.
 EXPOSE 3100
 USER node
-CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
+CMD ["node", "--import", "./node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
