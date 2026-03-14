@@ -29,9 +29,9 @@ Describe actual behavior and error text.
 
 Paste sanitized logs and screenshots.
 
-## Validation step that failed
+## Deployment stage that failed
 
-Reference the failed section in `validation-runbook.md`.
+Examples: build, startup, healthcheck, first-run auth, restart persistence.
 
 ## Checklist
 

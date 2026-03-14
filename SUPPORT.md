@@ -5,9 +5,9 @@
 Use this repository's issue tracker for:
 
 - deployment problems specific to Railway template defaults
-- incorrect template variables or descriptions
+- incorrect template variables
 - volume/persistence wiring issues
-- marketplace copy or onboarding improvements
+- Docker build/runtime issues in this template repo
 
 ## Not template support
 
@@ -21,5 +21,4 @@ Please include:
 
 - template URL
 - service logs (sanitized)
-- which checklist step failed (`validation-runbook.md`)
 - whether failure happened on first deploy, restart, or redeploy
