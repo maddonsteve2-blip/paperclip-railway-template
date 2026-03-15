@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import express from "express";
 import httpProxy from "http-proxy";
+import pg from "pg";
 
 const PUBLIC_PORT = Number.parseInt(process.env.PORT ?? "3100", 10);
 const INTERNAL_PORT = Number.parseInt(process.env.INTERNAL_PAPERCLIP_PORT ?? "3199", 10);
@@ -41,6 +42,42 @@ async function isPaperclipReady() {
   }
 }
 
+const { Client } = pg;
+const ONBOARDED_CACHE_TTL_MS = 5 * 60 * 1000;   // once onboarded, trust for 5 min
+const NOT_ONBOARDED_CACHE_MS = 10 * 1000;       // when not onboarded, recheck every 10s
+let onboardedCache = { value: null, at: 0 };
+
+async function hasInstanceAdmin() {
+  const now = Date.now();
+  if (onboardedCache.value === true && now - onboardedCache.at < ONBOARDED_CACHE_TTL_MS)
+    return true;
+  if (onboardedCache.value === false && now - onboardedCache.at < NOT_ONBOARDED_CACHE_MS)
+    return false;
+
+  const dbUrl = process.env.DATABASE_URL?.trim();
+  if (!dbUrl) {
+    onboardedCache = { value: false, at: now };
+    return false;
+  }
+  const client = new Client({ connectionString: dbUrl });
+  try {
+    await client.connect();
+    const r = await client.query(
+      "SELECT COUNT(*)::int AS count FROM instance_user_roles WHERE role = $1",
+      ["instance_admin"],
+    );
+    const count = r.rows[0]?.count ?? 0;
+    const ok = count > 0;
+    onboardedCache = { value: ok, at: now };
+    return ok;
+  } catch {
+    onboardedCache = { value: false, at: now };
+    return false;
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
 function setupHtml() {
   return `<!doctype html>
 <html>
@@ -49,33 +86,45 @@ function setupHtml() {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Paperclip Setup</title>
     <style>
-      body { font-family: Inter, system-ui, Arial, sans-serif; background:#0b1020; color:#e5e7eb; margin:0; padding:24px; }
-      .card { max-width:900px; margin:0 auto; background:#111827; border:1px solid #1f2937; border-radius:12px; padding:20px; }
-      h1 { margin-top:0; font-size:28px; }
-      .row { margin:12px 0; }
-      button { background:#2563eb; color:white; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
-      button:disabled { opacity:.6; cursor:not-allowed; }
-      code, pre { background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:10px; display:block; overflow:auto; }
-      .muted { color:#9ca3af; }
-      a { color:#93c5fd; }
-      .invite-link { display:inline-block; word-break:break-all; font-family:monospace; }
+      * { box-sizing: border-box; }
+      body { font-family: Inter, system-ui, -apple-system, sans-serif; background:#0d0d0d; color:#d8d8d8; margin:0; padding:32px; line-height:1.5; }
+      .card { max-width:720px; margin:0 auto; background:#141414; border:1px solid #2d2d2d; border-radius:12px; padding:32px; }
+      h1 { margin:0 0 8px 0; font-size:24px; font-weight:600; color:#fff; }
+      .sub { color:#9ca3af; font-size:14px; margin:0 0 24px 0; }
+      .row { margin:0 0 20px 0; }
+      .row:last-of-type { margin-bottom:0; }
+      .label { font-size:13px; color:#9ca3af; margin-bottom:6px; }
+      button { background:#262626; color:#fff; border:1px solid #404040; border-radius:8px; padding:10px 16px; font-size:14px; font-weight:500; cursor:pointer; font-family:inherit; }
+      button:hover:not(:disabled) { background:#2d2d2d; border-color:#525252; }
+      button:disabled { opacity:0.6; cursor:not-allowed; }
+      pre, .block { background:#1a1a1a; border:1px solid #2d2d2d; border-radius:8px; padding:12px 14px; font-size:13px; display:block; overflow:auto; margin:0; color:#d8d8d8; }
+      pre { font-family: ui-monospace, monospace; white-space: pre-wrap; word-break: break-all; }
+      .muted { color:#9ca3af; font-size:14px; }
+      a { color:#a5b4fc; text-decoration:none; }
+      a:hover { text-decoration:underline; }
+      .invite-link { display:inline-block; word-break:break-all; font-family:ui-monospace, monospace; font-size:13px; }
+      .footer { margin-top:24px; padding-top:16px; border-top:1px solid #2d2d2d; color:#9ca3af; font-size:13px; }
     </style>
   </head>
   <body>
     <div class="card">
       <h1>Paperclip Setup</h1>
-      <p class="muted">Use this page to generate your first admin invite URL.</p>
-      <div class="row">Paperclip health: <strong id="health">checking...</strong></div>
+      <p class="sub">Generate your first admin invite URL to bootstrap this instance.</p>
+      <div class="row">
+        <div class="label">Status</div>
+        <div>Paperclip health: <strong id="health">checking...</strong></div>
+      </div>
       <div class="row"><button id="bootstrap">Generate admin invite URL</button></div>
       <div class="row" id="inviteRow" style="display:none;">
-        <div>Invite URL</div>
-        <a id="invite" href="#" target="_blank" rel="noopener" class="invite-link"></a>
+        <div class="label">Invite URL</div>
+        <a id="invite" href="#" target="_blank" rel="noopener" class="invite-link block"></a>
       </div>
       <div class="row">
-        <div>Command output</div>
+        <div class="label">Command output</div>
         <pre id="output">-</pre>
       </div>
-      <div class="row muted">After accepting invite, open <a href="/" target="_blank">Paperclip app</a>.</div>
+      <div class="row muted">After accepting the invite, open <a href="/" target="_blank">Paperclip app</a>.</div>
+      <div class="row footer">Template source &amp; support: <a href="https://github.com/Lukem121/paperclip-railway-template" target="_blank" rel="noopener">GitHub</a></div>
     </div>
     <script>
       const healthEl = document.getElementById("health");
@@ -199,6 +248,18 @@ app.post("/setup/api/bootstrap", async (req, res) => {
   const baseUrl = buildBaseUrl(req);
   const result = await runBootstrap(baseUrl);
   res.status(result.ok ? 200 : 500).json(result);
+});
+
+// If no instance admin yet, send visitors from / to /setup
+app.use(async (req, res, next) => {
+  const path = (req.path || "/").replace(/\/+$/, "") || "/";
+  if (req.method !== "GET" || path !== "/") return next();
+  const onboarded = await hasInstanceAdmin();
+  if (!onboarded) {
+    res.redirect(302, "/setup");
+    return;
+  }
+  next();
 });
 
 app.use((req, res) => {
