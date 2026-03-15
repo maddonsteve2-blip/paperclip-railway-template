@@ -163,7 +163,15 @@ const app = express();
 const proxy = httpProxy.createProxyServer({
   target: PAPERCLIP_TARGET,
   ws: true,
-  changeOrigin: true,
+  changeOrigin: false, // preserve Host/Origin so backend trusts browser origin (Better Auth)
+});
+
+// Ensure backend sees public host and protocol for trusted-origin checks
+proxy.on("proxyReq", (proxyReq, req) => {
+  const host = req.headers["x-forwarded-host"] ?? req.headers.host;
+  const proto = req.headers["x-forwarded-proto"] ?? (req.socket?.encrypted ? "https" : "http");
+  if (host) proxyReq.setHeader("x-forwarded-host", host);
+  proxyReq.setHeader("x-forwarded-proto", proto);
 });
 
 proxy.on("error", (_err, req, res) => {
