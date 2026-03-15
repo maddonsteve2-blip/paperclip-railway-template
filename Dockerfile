@@ -25,19 +25,26 @@ ENV NODE_ENV=production
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
 WORKDIR /app
 COPY --from=paperclip-build /paperclip /app
 
+WORKDIR /wrapper
+COPY package.json /wrapper/package.json
+RUN npm install --omit=dev && npm cache clean --force
+COPY src /wrapper/src
+COPY scripts/bootstrap-ceo.mjs /wrapper/template/bootstrap-ceo.mjs
+
 # Optional local adapters/tools parity with upstream Dockerfile.
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
 RUN npm install --global --omit=dev tsx
 RUN mkdir -p /paperclip \
-    && chown -R node:node /app /paperclip
+    && chown -R node:node /app /paperclip /wrapper
 
 # Railway sets PORT at runtime and this process binds to it.
 EXPOSE 3100
 USER node
-CMD ["tsx", "server/dist/index.js"]
+CMD ["node", "/wrapper/src/server.js"]

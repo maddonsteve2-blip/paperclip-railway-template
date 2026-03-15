@@ -3,8 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "tsx server/dist/index.js"
-healthcheckPath = "/api/health"
+startCommand = "node /wrapper/src/server.js"
+healthcheckPath = "/setup/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
