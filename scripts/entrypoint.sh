@@ -4,31 +4,16 @@ set -e
 # Create dirs Paperclip needs and ensure the whole tree is owned by node.
 mkdir -p /paperclip/instances/default/logs
 
-# Write opencode config for minimax (Anthropic-compatible) if not already present.
-# ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL are set as Railway env vars.
-OPENCODE_CFG_DIR="${XDG_CONFIG_HOME:-/paperclip/.config}/opencode"
-OPENCODE_CFG_FILE="$OPENCODE_CFG_DIR/opencode.json"
-mkdir -p "$OPENCODE_CFG_DIR"
-cat > "$OPENCODE_CFG_FILE" << EOJSON
-{
-  "\$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "minimax": {
-      "npm": "@ai-sdk/anthropic",
-      "options": {
-        "baseURL": "https://api.minimax.io/anthropic/v1",
-        "apiKey": "${ANTHROPIC_API_KEY}"
-      },
-      "models": {
-        "MiniMax-M2.7": {
-          "name": "MiniMax-M2.7"
-        }
-      }
-    }
-  }
-}
-EOJSON
-echo "[entrypoint] wrote opencode config to $OPENCODE_CFG_FILE"
+# Write opencode config so the built-in anthropic provider points to minimax.
+node -e "
+const fs = require('fs');
+const baseURL = process.env.ANTHROPIC_BASE_URL || 'https://api.minimax.io/anthropic/v1';
+const cfg = { provider: { anthropic: { options: { baseURL }, models: { 'MiniMax-M2.7': { name: 'MiniMax-M2.7' } } } } };
+const dir = (process.env.XDG_CONFIG_HOME || '/paperclip/.config') + '/opencode';
+fs.mkdirSync(dir, { recursive: true });
+fs.writeFileSync(dir + '/opencode.json', JSON.stringify(cfg, null, 2));
+console.log('[entrypoint] wrote opencode config to ' + dir + '/opencode.json');
+"
 
 chown -R node:node /paperclip
 exec gosu node "$@"
