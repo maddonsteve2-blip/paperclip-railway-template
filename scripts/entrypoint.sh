@@ -9,15 +9,15 @@ mkdir -p /paperclip/instances/default/logs
 OPENCODE_CFG_DIR="${XDG_CONFIG_HOME:-/paperclip/.config}/opencode"
 OPENCODE_CFG_FILE="$OPENCODE_CFG_DIR/opencode.json"
 mkdir -p "$OPENCODE_CFG_DIR"
-if [ ! -f "$OPENCODE_CFG_FILE" ]; then
-  cat > "$OPENCODE_CFG_FILE" << 'EOJSON'
+cat > "$OPENCODE_CFG_FILE" << EOJSON
 {
-  "$schema": "https://opencode.ai/config.json",
+  "\$schema": "https://opencode.ai/config.json",
   "provider": {
     "minimax": {
       "npm": "@ai-sdk/anthropic",
       "options": {
-        "baseURL": "https://api.minimax.io/anthropic/v1"
+        "baseURL": "https://api.minimax.io/anthropic/v1",
+        "apiKey": "${ANTHROPIC_API_KEY}"
       },
       "models": {
         "MiniMax-M2.7": {
@@ -28,8 +28,7 @@ if [ ! -f "$OPENCODE_CFG_FILE" ]; then
   }
 }
 EOJSON
-  echo "[entrypoint] wrote opencode config to $OPENCODE_CFG_FILE"
-fi
+echo "[entrypoint] wrote opencode config to $OPENCODE_CFG_FILE"
 
 chown -R node:node /paperclip
 exec gosu node "$@"
