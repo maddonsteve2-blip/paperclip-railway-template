@@ -8,7 +8,7 @@ mkdir -p /paperclip/instances/default/logs
 node -e "
 const fs = require('fs');
 const baseURL = process.env.ANTHROPIC_BASE_URL || 'https://api.minimax.io/anthropic/v1';
-const cfg = { provider: { anthropic: { options: { baseURL }, models: { 'MiniMax-M2.7': { name: 'MiniMax-M2.7' } } } } };
+const cfg = { permission: { external_directory: 'allow' }, provider: { anthropic: { options: { baseURL }, models: { 'MiniMax-M2.7': { name: 'MiniMax-M2.7' } } } } };
 const dir = (process.env.XDG_CONFIG_HOME || '/paperclip/.config') + '/opencode';
 fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(dir + '/opencode.json', JSON.stringify(cfg, null, 2));
