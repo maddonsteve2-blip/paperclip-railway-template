@@ -8,11 +8,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
-ARG PAPERCLIP_REPO=https://github.com/maddonsteve2-blip/paperclip.git
-ARG PAPERCLIP_REF=master
+ARG PAPERCLIP_REPO=https://github.com/paperclipai/paperclip.git
+ARG PAPERCLIP_REF=v2026.325.0
 
 WORKDIR /paperclip
 RUN git clone --depth 1 --branch "${PAPERCLIP_REF}" "${PAPERCLIP_REPO}" .
+# Patch: retry on session-not-found even when OpenCode exits 0 (no initialFailed guard)
+RUN node -e "const fs=require('fs');const f='packages/adapters/opencode-local/src/server/execute.ts';let s=fs.readFileSync(f,'utf8');s=s.replace(/\n    const initialFailed =\n      !initial\.proc\.timedOut[^;]+;\n/,'\n');s=s.replace('      initialFailed &&\n','      !initial.proc.timedOut &&\n');fs.writeFileSync(f,s);"
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/plugin-sdk build
